@@ -57,6 +57,7 @@ TEXT_CODE_EXTENSIONS = {
     ".scala",
     ".sh",
     ".sql",
+    ".svelte",
     ".swift",
     ".tf",
     ".toml",
