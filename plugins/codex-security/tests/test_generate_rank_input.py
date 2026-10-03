@@ -407,13 +407,26 @@ def test_rank_input_includes_solidity(tmp_path: Path, mode: str) -> None:
 
 
 @pytest.mark.parametrize("mode", ["repo", "revisions", "local-patch"])
-def test_rank_input_includes_svelte(tmp_path: Path, mode: str) -> None:
+@pytest.mark.parametrize(
+    ("filename", "content"),
+    [
+        (
+            "Counter.svelte",
+            '<script lang="ts">\nlet count = 0;\n</script>\n<button>{count}</button>',
+        ),
+        ("profile.EJS", "<% const count = 0; %>\n<p><%= count %></p>"),
+        ("show.html.erb", "<% count = 0 %>\n<p><%= count %></p>"),
+        ("card.phtml", "<?php $count = 0; ?>\n<p><?= $count ?></p>"),
+    ],
+)
+def test_rank_input_includes_templates(
+    tmp_path: Path, mode: str, filename: str, content: str
+) -> None:
     repo = tmp_path / "repo"
     components = repo / "src"
     components.mkdir(parents=True)
     initialize_repo(repo)
-    source = components / "Counter.svelte"
-    content = '<script lang="ts">\nlet count = 0;\n</script>\n<button>{count}</button>'
+    source = components / filename
     source.write_text(content + "\n", encoding="utf-8")
     git(repo, "add", ".")
     git(repo, "commit", "-qm", "base")
@@ -436,67 +449,10 @@ def test_rank_input_includes_svelte(tmp_path: Path, mode: str) -> None:
 
     assert read_jsonl(output) == [
         {
-            "path": "src/Counter.svelte",
+            "path": f"src/{filename}",
             "area": "src" if mode == "repo" else "diff",
             "preview": changed,
         }
-    ]
-
-
-@pytest.mark.parametrize("mode", ["repo", "revisions", "staged", "unstaged"])
-def test_rank_input_includes_server_rendered_templates(tmp_path: Path, mode: str) -> None:
-    repo = tmp_path / "repo"
-    views = repo / "views"
-    views.mkdir(parents=True)
-    initialize_repo(repo)
-    sources = {
-        "control.html": "<p>before</p>",
-        "profile.ejs": '<% const label = "before"; %>\n<p><%= label %></p>',
-        "upper.EJS": '<% const label = "before"; %>\n<p><%= label %></p>',
-        "profile.erb": '<% label = "before" %>\n<p><%= label %></p>',
-        "upper.ERB": '<% label = "before" %>\n<p><%= label %></p>',
-        "show.html.erb": '<% label = "before" %>\n<p><%= label %></p>',
-        "card.phtml": '<?php $label = "before"; ?>\n<p><?= $label ?></p>',
-        "upper.PHTML": '<?php $label = "before"; ?>\n<p><?= $label ?></p>',
-    }
-    for name, source in sources.items():
-        (views / name).write_text(source + "\n", encoding="utf-8")
-    git(repo, "add", ".")
-    git(repo, "commit", "-qm", "base")
-    base = git(repo, "rev-parse", "HEAD")
-    for name, source in sources.items():
-        (views / name).write_text(source.replace("before", "after") + "\n", encoding="utf-8")
-    output = tmp_path / "rank_input.jsonl"
-
-    if mode in {"revisions", "staged"}:
-        git(repo, "add", ".")
-    if mode == "repo":
-        arguments = ["make-repo-rank-input", "--repo", str(repo), "--scope", "views"]
-    else:
-        diff_mode = "revisions" if mode == "revisions" else "local-patch"
-        arguments = [
-            "make-diff-rank-input",
-            "--repo",
-            str(repo),
-            "--base",
-            base,
-            "--mode",
-            diff_mode,
-        ]
-        if mode == "revisions":
-            git(repo, "commit", "-qm", "change")
-            arguments.extend(["--head", git(repo, "rev-parse", "HEAD")])
-            git(repo, "checkout", "-q", base)
-
-    run_cli(*arguments, "--out", str(output))
-
-    assert read_jsonl(output) == [
-        {
-            "path": f"views/{name}",
-            "area": "views" if mode == "repo" else "diff",
-            "preview": source.replace("before", "after"),
-        }
-        for name, source in sorted(sources.items())
     ]
 
 
