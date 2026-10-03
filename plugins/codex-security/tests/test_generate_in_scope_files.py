@@ -648,6 +648,43 @@ def test_diff_inventory_includes_changed_svelte(tmp_path: Path, mode: str) -> No
     assert output.read_text(encoding="utf-8") == "src/routes/+page.svelte\n"
 
 
+@pytest.mark.parametrize("mode", ["revisions", "staged", "unstaged"])
+def test_diff_inventory_includes_changed_server_rendered_templates(
+    tmp_path: Path, mode: str
+) -> None:
+    repository = make_repository(tmp_path)
+    names = [
+        "views/control.html",
+        "views/profile.ejs",
+        "views/upper.EJS",
+        "views/profile.erb",
+        "views/upper.ERB",
+        "views/show.html.erb",
+        "views/card.phtml",
+        "views/upper.PHTML",
+    ]
+    for name in names:
+        write_file(repository, name, b"<p>before</p>\n")
+    git(repository, "add", ".")
+    git(repository, "commit", "-qm", "base")
+    base = git(repository, "rev-parse", "HEAD")
+    for name in names:
+        write_file(repository, name, b"<p>after</p>\n")
+    arguments = ["--diff-base", base, "--diff-mode", "local-patch"]
+    if mode in {"revisions", "staged"}:
+        git(repository, "add", ".")
+    if mode == "revisions":
+        git(repository, "commit", "-qm", "change")
+        arguments = ["--diff-base", base, "--diff-head", git(repository, "rev-parse", "HEAD")]
+        git(repository, "checkout", "-q", base)
+    output = tmp_path / "in_scope_files.txt"
+
+    result = run_inventory(repository, ".", output, arguments=arguments)
+
+    assert result.returncode == 0, result.stderr
+    assert output.read_text(encoding="utf-8").splitlines() == sorted(names)
+
+
 def test_diff_inventory_keeps_every_javascript_module_extension(tmp_path: Path) -> None:
     repository = make_repository(tmp_path)
     git(repository, "add", ".")
