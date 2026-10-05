@@ -425,6 +425,53 @@ inline int answer() { return 42; }
     )
 
 
+@pytest.mark.parametrize(
+    "suffix", [".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".mm", ".CPP"]
+)
+def test_cpp_raw_string_does_not_hide_following_declarations(tmp_path: Path, suffix: str) -> None:
+    source = """void before() {}
+const char* text = R"tag("{)tag";
+class Service {
+public:
+  const char* value() { return R"("{)"; }
+  void visible() {}
+};
+void after() {}
+"""
+
+    preview = generate_preview(tmp_path, f"sample{suffix}", source)
+
+    assert preview.splitlines() == [
+        "function before",
+        "class Service",
+        "method Service.value",
+        "method Service.visible",
+        "function after",
+    ]
+    assert preview_for_bytes(
+        Path(f"sample{suffix}"), source.encode("utf-8"), DEFAULT_PREVIEW_BYTES
+    ) == (
+        preview,
+        False,
+    )
+
+
+@pytest.mark.parametrize("prefix", ["", "u8", "u", "U", "L"])
+@pytest.mark.parametrize("delimiter", ["", "tag", "abcdefghijklmnop"])
+def test_cpp_raw_string_body_is_not_code(tmp_path: Path, prefix: str, delimiter: str) -> None:
+    source = f'''void before() {{}}
+const auto text = {prefix}R"{delimiter}(
+void fake() {{}}
+" {{ /*
+){delimiter}";
+void after() {{}}
+'''
+
+    preview = generate_preview(tmp_path, "sample.cpp", source)
+
+    assert preview.splitlines() == ["function before", "function after"]
+
+
 def test_expression_bodied_function_does_not_consume_next_type_body(tmp_path: Path) -> None:
     source = """fun answer(): Int = 42
 class Service {
