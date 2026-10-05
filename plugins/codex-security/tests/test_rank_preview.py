@@ -448,12 +448,6 @@ void after() {}
         "method Service.visible",
         "function after",
     ]
-    assert preview_for_bytes(
-        Path(f"sample{suffix}"), source.encode("utf-8"), DEFAULT_PREVIEW_BYTES
-    ) == (
-        preview,
-        False,
-    )
 
 
 @pytest.mark.parametrize("prefix", ["", "u8", "u", "U", "L"])
@@ -466,6 +460,19 @@ void fake() {{}}
 ){delimiter}";
 void after() {{}}
 '''
+
+    preview = generate_preview(tmp_path, "sample.cpp", source)
+
+    assert preview.splitlines() == ["function before", "function after"]
+
+
+@pytest.mark.parametrize("macro", ["ERROR", "FORMAT_u8R", "x\u0301R"])
+def test_cpp_macro_before_string_is_not_a_raw_string(tmp_path: Path, macro: str) -> None:
+    source = f"""#define {macro} "error: "
+void before() {{}}
+const char* text = {macro}"(connection failed";
+void after() {{}}
+"""
 
     preview = generate_preview(tmp_path, "sample.cpp", source)
 

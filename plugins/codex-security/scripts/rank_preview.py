@@ -102,7 +102,7 @@ BRACE_LANGUAGE_EXTENSIONS = {
     ".swift",
 }
 NESTED_BLOCK_COMMENT_EXTENSIONS = {".kt", ".kts", ".rs", ".scala", ".swift"}
-CPP_RAW_STRING_RE = re.compile(r'(?:u8|u|U|L)?R"([^\s()\\]{0,16})\(')
+CPP_RAW_STRING_RE = re.compile(r'(?<![\w\x80-\U0010ffff])(?:u8|u|U|L)?R"([^\s()\\]{0,16})\(')
 RUST_RAW_STRING_RE = re.compile(r'(?:br|r)(#{0,16})"')
 RUST_LIFETIME_RE = re.compile(r"'[A-Za-z_][A-Za-z0-9_]*")
 PHP_HEREDOC_RE = re.compile(r"<<<\s*['\"]?([A-Za-z_]\w*)['\"]?")
