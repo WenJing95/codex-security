@@ -1,5 +1,9 @@
 const distModules = [
   "api",
+  "scan-executor",
+  "host-protocol",
+  "hosted-scan",
+  "hosted-scan-protocol",
   "artifact-export",
   "auth",
   "bulk-scan-discovery",
@@ -76,6 +80,7 @@ const distModules = [
   "finding-retrieval",
   "finding-normalization",
   "workbench-arguments",
+  "executable-path",
   "finding-workflow",
   "findings-client",
   "findings-errors",
