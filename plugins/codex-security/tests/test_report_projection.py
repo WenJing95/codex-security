@@ -919,6 +919,8 @@ def test_projection_preserves_identifier_text_and_code_path_spelling(
         ({"startLine": 37, "endLine": None}, "`src/evidence.py:37`"),
         ({"startLine": 48, "endLine": 47}, "`src/evidence.py:48`"),
         ({"startLine": 59, "endLine": "60"}, "`src/evidence.py:59`"),
+        ({"startLine": 37, "endLine": True}, "`src/evidence.py:37`"),
+        ({"startLine": True, "endLine": 4}, "`src/evidence.py`"),
         ({"startLine": 0}, "`src/evidence.py`"),
         ({"startLine": -1}, "`src/evidence.py`"),
     ],
