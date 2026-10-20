@@ -76,7 +76,7 @@ describe("CLI update notice", () => {
     const installed = "/workspace/node_modules/pkg/dist/version.js";
     const packageName = "@openai/codex-security@latest";
 
-    for (const [environment, entrypoint, command] of [
+    for (const [environment, entrypoint, command, nodeExecutable] of [
       [{ npm_command: "exec" }, installed, `npx ${packageName}`],
       [{}, "/cache/_npx/pkg", `npx ${packageName}`],
       [{}, installed, `npm install ${packageName}`],
@@ -90,6 +90,31 @@ describe("CLI update notice", () => {
         {},
         "C:\\AppData\\Local\\nvm\\v22.20.0\\node_modules\\pkg",
         `npm install -g ${packageName}`,
+        "C:\\AppData\\Local\\nvm\\v22.20.0\\node.exe",
+      ],
+      [
+        {},
+        "D:/Node Versions/v22.20.0/node_modules/pkg",
+        `npm install -g ${packageName}`,
+        "d:\\node versions\\v22.20.0\\node.exe",
+      ],
+      [
+        {},
+        "D:/Node Versions/v22.20.0/project/node_modules/pkg",
+        `npm install ${packageName}`,
+        "D:/Node Versions/v22.20.0/node.exe",
+      ],
+      [
+        { npm_command: "exec" },
+        "D:/Node Versions/v22.20.0/node_modules/pkg",
+        `npx ${packageName}`,
+        "D:/Node Versions/v22.20.0/node.exe",
+      ],
+      [
+        {},
+        "D:/release/.install/node_modules/pkg",
+        "download and extract the latest Codex Security release",
+        "D:/release/.install/node.exe",
       ],
       [
         { npm_config_user_agent: "pnpm/10.0.0" },
@@ -126,7 +151,9 @@ describe("CLI update notice", () => {
       ],
       [{}, "/workspace/src/version.ts", `npx ${packageName}`],
     ] as const) {
-      expect(updateCommand(environment, entrypoint)).toBe(command);
+      expect(updateCommand(environment, entrypoint, nodeExecutable)).toBe(
+        command,
+      );
     }
   });
 
