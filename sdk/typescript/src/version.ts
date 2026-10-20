@@ -50,6 +50,7 @@ export function updateCommand(
     environment["npm_config_global"] === "true" ||
     path.includes("/lib/node_modules/") ||
     path.includes("/appdata/roaming/npm/node_modules/") ||
+    /\/nvm\/v[\d.]+\/node_modules\//.test(path) ||
     path.includes("/pnpm/global/") ||
     path.includes("/.bun/install/global/") ||
     path.includes("/.yarn/global/") ||

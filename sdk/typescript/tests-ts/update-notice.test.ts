@@ -87,6 +87,11 @@ describe("CLI update notice", () => {
         `npm install -g ${packageName}`,
       ],
       [
+        {},
+        "C:\\AppData\\Local\\nvm\\v22.20.0\\node_modules\\pkg",
+        `npm install -g ${packageName}`,
+      ],
+      [
         { npm_config_user_agent: "pnpm/10.0.0" },
         installed,
         `pnpm add ${packageName}`,
