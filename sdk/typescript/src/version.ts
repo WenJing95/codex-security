@@ -1,5 +1,5 @@
 import { isNonEmptyString } from "./value.js";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import semverGt from "semver/functions/gt.js";
@@ -33,7 +33,7 @@ export function updateCommand(
   environment: NodeJS.ProcessEnv = process.env,
   entrypoint: string = fileURLToPath(import.meta.url),
   nodeExecutable: string | undefined = process.platform === "win32"
-    ? process.execPath
+    ? realpathSync(process.execPath)
     : undefined,
 ): string {
   const path = entrypoint.replaceAll("\\", "/").toLowerCase();

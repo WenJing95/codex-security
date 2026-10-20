@@ -1,5 +1,7 @@
 import { createCliTest, runCapturedCli } from "./support/cli-run.js";
 import { once } from "node:events";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { resolving } from "./support/promises.js";
 import { describe, expect, test, mock } from "bun:test";
 import {
@@ -11,6 +13,7 @@ import { capture, dependencies } from "./cli-fixtures.js";
 import { main } from "../src/cli.js";
 import { rejecting } from "./support/errors.js";
 import { responding } from "./support/responses.js";
+import { createTemporaryDirectoriesSync } from "./support/temporary-directories.js";
 
 function registryResponse(version: unknown) {
   return async () => new Response(JSON.stringify({ version }));
@@ -154,6 +157,31 @@ describe("CLI update notice", () => {
       expect(updateCommand(environment, entrypoint, nodeExecutable)).toBe(
         command,
       );
+    }
+  });
+
+  test("recognizes Windows globals through a linked Node directory", () => {
+    const temporaryDirectories = createTemporaryDirectoriesSync(true);
+    const root = temporaryDirectories.create("codex-update-notice-");
+    const nodeDirectory = join(root, "Node Versions", "v22.20.0");
+    const nodeLink = join(root, "nodejs");
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    const execPath = Object.getOwnPropertyDescriptor(process, "execPath")!;
+
+    try {
+      mkdirSync(nodeDirectory, { recursive: true });
+      writeFileSync(join(nodeDirectory, "node.exe"), "");
+      symlinkSync(nodeDirectory, nodeLink, "junction");
+      Object.defineProperties(process, {
+        platform: { value: "win32" },
+        execPath: { value: join(nodeLink, "node.exe") },
+      });
+      expect(
+        updateCommand({}, join(nodeDirectory, "node_modules", "pkg")),
+      ).toBe("npm install -g @openai/codex-security@latest");
+    } finally {
+      Object.defineProperties(process, { platform, execPath });
+      temporaryDirectories.cleanup();
     }
   });
 
