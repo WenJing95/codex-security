@@ -144,6 +144,14 @@ class ThreatModelProjectionTest(ScanFixtureTestCase):
                 )
                 self.assertEqual((self.scan_dir / "scan-manifest.json").read_bytes(), sealed)
 
+    def test_legacy_non_string_origin_is_not_recorded(self) -> None:
+        for origin in ({"tool": "legacy"}, None, ["generated"]):
+            with self.subTest(origin=origin):
+                document = FINALIZER._render_threat_model(
+                    {"summary": "Existing structured model.", "origin": origin}, {}
+                )
+                self.assertIn(b"- Model origin: not recorded", document)
+
     def test_failed_projection_update_does_not_expose_the_previous_model(self) -> None:
         self.manifest["scan"]["threatModel"] = {"summary": "Original queue boundaries."}
         self.write_scan()
