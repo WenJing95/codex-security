@@ -101,10 +101,10 @@ def _scope_lines(scope: Any, label: str, text: Callable[[Any, str], str]) -> lis
     included = scope.get("includePaths") if isinstance(scope, dict) else None
     if not isinstance(included, list) or not all(isinstance(path, str) for path in included):
         return [f"- {label}: not recorded"]
-    lines = [f"- {label}: {text(', '.join(included), 'none')}"]
+    lines = [f"- {label}: {', '.join(map(report._path_text, included)) or 'none'}"]
     excluded = scope.get("excludePaths")
     if isinstance(excluded, list) and excluded and all(isinstance(path, str) for path in excluded):
-        lines.append(f"- {label} exclusions: {text(', '.join(excluded), 'none')}")
+        lines.append(f"- {label} exclusions: {', '.join(map(report._path_text, excluded))}")
     summary = scope.get("summary")
     if isinstance(summary, str) and summary:
         lines.append(f"- {label} description: {text(summary, 'not recorded')}")

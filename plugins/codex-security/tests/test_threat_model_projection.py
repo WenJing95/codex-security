@@ -80,6 +80,15 @@ class ThreatModelProjectionTest(ScanFixtureTestCase):
         self.assertIn(b"tmp/\\*", document)
         self.assertIn(b"Service boundaries.", document)
 
+    def test_scope_paths_keep_ambiguous_literals_distinct(self) -> None:
+        scope = {"includePaths": ["a,b.ts", "a  b", "src"], "excludePaths": [" "]}
+        document = FINALIZER._render_threat_model(
+            {"summary": "Existing structured model.", "scope": scope}, {"scanScope": scope}
+        )
+        for label in (b"Model scope", b"Scan scope"):
+            self.assertIn(label + b': `"a,b.ts"`, `"a  b"`, src\n', document)
+            self.assertIn(label + b' exclusions: `" "`\n', document)
+
     def test_exports_legacy_structured_model_extensions(self) -> None:
         for extensions, expected_origin in (
             ({"format": "markdown"}, "not recorded"),
