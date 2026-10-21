@@ -803,6 +803,17 @@ def test_projection_escapes_raw_html_in_markdown() -> None:
     assert r'\<img src="x" onerror="alert(1)"\>' in markdown_text
 
 
+def test_projection_keeps_html_entities_literal_in_markdown() -> None:
+    manifest, findings, coverage = canonical_documents()
+    findings["findings"][0]["summary"] = "Sanitizer decodes &#x3C;script&#x3E; and &amp;lt;"
+    coverage["includePaths"] = ["docs/&lt;b&gt;.md"]
+
+    markdown_text = PROJECTION.generate_report_markdown(manifest, findings, coverage).decode()
+
+    assert r"Sanitizer decodes \&#x3C;script\&#x3E; and \&amp;lt;" in markdown_text
+    assert r"- Included paths: docs/\&lt;b\&gt;.md" in markdown_text
+
+
 def test_projection_omits_informational_findings() -> None:
     manifest, findings, coverage = canonical_documents()
     findings["findings"][0]["severity"]["level"] = "informational"

@@ -32,7 +32,7 @@ def _text(value: Any, fallback: str) -> str:
     if re.match(r"^(?:#{1,6}\s|[-*+]\s|>\s|```|~~~|\d+[.)]\s|\|)", normalized):
         normalized = f"Text: {normalized}"
     return "".join(
-        part if index % 2 else re.sub(r"([\\`*_\[\]<>])", r"\\\1", part)
+        part if index % 2 else re.sub(r"([\\`*_\[\]<>&])", r"\\\1", part)
         for index, part in enumerate(re.split(r"((?<!`)`[^`\n]+`(?!`))", normalized))
     )
 
@@ -57,7 +57,7 @@ def _path_text(value: str) -> str:
     if label != value:
         marker = _code_fence(label, minimum=1)
         return f"{marker}{label}{marker}"
-    return re.sub(r"([\\`*_\[\]<>])", r"\\\1", value)
+    return re.sub(r"([\\`*_\[\]<>&])", r"\\\1", value)
 
 
 def _cell(value: Any) -> str:
