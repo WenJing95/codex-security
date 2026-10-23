@@ -12,23 +12,14 @@ function collapse(value: string): string {
 
 /** Match report_projection._escape_markdown without changing URL ampersands. */
 function escapeMarkdown(value: string): string {
-  const urls = [...value.matchAll(/(?:https?|ftp):\/\/|(www)\./giu)]
-    .filter((match) => {
-      const previous = value[match.index - 1] ?? "";
-      return match[1]
-        ? previous === "" ||
-            /[\p{White_Space}\u001c-\u001f*_~(]/u.test(previous)
-        : !/[A-Za-z]/u.test(previous);
-    })
-    .map((match) => {
-      const length = value
-        .slice(match.index)
-        .search(/[\p{White_Space}\u001c-\u001f<>]/u);
-      return {
-        start: match.index,
-        end: length < 0 ? value.length : match.index + length,
-      };
-    });
+  const urls = [
+    ...value.matchAll(
+      /(?<![^\p{White_Space}\u001c-\u001f*_~(])www\.[^\p{White_Space}\u001c-\u001f<>]+/giu,
+    ),
+  ].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
   // Preserve protocol-relative and fuzzy links without a domain/TLD table.
   for (const match of value.matchAll(/[^\p{White_Space}\u001c-\u001f<>]+/gu)) {
     const token = match[0];

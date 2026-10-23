@@ -22,7 +22,7 @@ DISPOSITION_LABELS = {
 WRITEUP_REPORT_PATH_RE = re.compile(r"^findings/([a-z0-9][a-z0-9._-]*)/\1\.md$")
 INLINE_CODE_RE = r"(?<!`)`[^`\n]+`(?!`)"
 ENTITY_AMP_RE = r"&(?=(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);)"
-AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])(?i:www)\.)[^\s<>]+"
+WWW_LINK_RE = r"(?<![^\s*_~(])(?i:www)\.[^\s<>]+"
 
 
 class ReportProjectionError(ValueError):
@@ -31,7 +31,7 @@ class ReportProjectionError(ValueError):
 
 def _escape_markdown(value: str) -> str:
     # Locate whole URLs before matching code spans: a URL can contain backticks.
-    urls = [match.span() for match in re.finditer(AUTOLINK_RE, value)]
+    urls = [match.span() for match in re.finditer(WWW_LINK_RE, value)]
     # Preserve protocol-relative and fuzzy links without a domain/TLD table.
     for match in re.finditer(r"[^\s<>]+", value):
         token = match[0]
