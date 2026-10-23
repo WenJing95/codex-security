@@ -21,32 +21,30 @@ DISPOSITION_LABELS = {
 }
 WRITEUP_REPORT_PATH_RE = re.compile(r"^findings/([a-z0-9][a-z0-9._-]*)/\1\.md$")
 INLINE_CODE_RE = r"(?<!`)`[^`\n]+`(?!`)"
+ENTITY_AMP_RE = r"&(?=(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);)"
 AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])(?i:www)\.)[^\s<>]+"
-LINK_DOMAIN_RE = r"[^\s<>/@:?&.#\\]+(?:\.[^\s<>/@:?&.#\\]+)+"
-BARE_LINK_RE = (
-    rf"(?<![^\s\"'(\[*_~])(?:(?://)?{LINK_DOMAIN_RE}(?=[:/?#])"
-    rf"|[^\s<>/@]+@{LINK_DOMAIN_RE})[^\s<>]*"
-)
 
 
 class ReportProjectionError(ValueError):
     """Raised when a canonical scan cannot be projected into a valid report."""
 
 
-def _escape_markdown(value: str, *, inline_code: bool = False) -> str:
+def _escape_markdown(value: str) -> str:
     # Locate whole URLs before matching code spans: a URL can contain backticks.
-    urls = [
-        match.span()
-        for pattern in (AUTOLINK_RE, BARE_LINK_RE)
-        for match in re.finditer(pattern, value)
-    ]
-    punctuation = r"[\\`*_\[\]<>&]"
-    pattern = f"(?P<code>{INLINE_CODE_RE})|{punctuation}" if inline_code else punctuation
+    urls = [match.span() for match in re.finditer(AUTOLINK_RE, value)]
+    # Preserve protocol-relative and fuzzy links without a domain/TLD table.
+    for match in re.finditer(r"[^\s<>]+", value):
+        token = match[0]
+        dot = token.split("/", 1)[0].find(".")
+        if "//" in token or (dot >= 0 and re.search(r"[/?#]", token[dot + 1 :])):
+            urls.append(match.span())
+    punctuation = r"[\\`*_\[\]<>]|" + ENTITY_AMP_RE
+    pattern = f"(?P<code>{INLINE_CODE_RE})|{punctuation}"
 
     def escape(match: re.Match[str]) -> str:
         if match.lastgroup == "code":
             return match[0]
-        # GFM autolinks keep backslashes literally, including before query separators.
+        # GFM autolinks retain backslashes literally, including in query strings.
         if match[0] == "&" and any(start <= match.start() < end for start, end in urls):
             return "&"
         return "\\" + match[0]
@@ -59,7 +57,7 @@ def _text(value: Any, fallback: str) -> str:
     normalized = " ".join(candidate.split())
     if re.match(r"^(?:#{1,6}\s|[-*+]\s|>\s|```|~~~|\d+[.)]\s|\|)", normalized):
         normalized = f"Text: {normalized}"
-    return _escape_markdown(normalized, inline_code=True)
+    return _escape_markdown(normalized)
 
 
 def _strings(value: Any) -> list[str]:
@@ -79,10 +77,11 @@ def _path_label(value: str, *, ensure_ascii: bool = False) -> str:
 
 def _path_text(value: str, *, ensure_ascii: bool = False) -> str:
     label = _path_label(value, ensure_ascii=ensure_ascii)
-    if label != value:
+    if label != value or re.search(ENTITY_AMP_RE, value):
         marker = _code_fence(label, minimum=1)
-        return f"{marker}{label}{marker}"
-    return _escape_markdown(value)
+        padding = " " if label.startswith("`") or label.endswith("`") else ""
+        return f"{marker}{padding}{label}{padding}{marker}"
+    return re.sub(r"([\\`*_\[\]<>])", r"\\\1", value)
 
 
 def _cell(value: Any) -> str:

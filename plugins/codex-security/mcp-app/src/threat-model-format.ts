@@ -1,4 +1,5 @@
 const whitespace = /[\p{White_Space}\u001c-\u001f]+/gu;
+const entityAmp = /&(?=(?:#[0-9]+|#[xX][0-9A-Fa-f]+|[A-Za-z][A-Za-z0-9]*);)/u;
 
 /** Match the retained artifact projection's Python whitespace semantics. */
 export function nonblank(value: string): boolean {
@@ -10,7 +11,7 @@ function collapse(value: string): string {
 }
 
 /** Match report_projection._escape_markdown without changing URL ampersands. */
-function escapeMarkdown(value: string, inlineCode = false): string {
+function escapeMarkdown(value: string): string {
   const urls = [...value.matchAll(/(?:https?|ftp):\/\/|(www)\./giu)]
     .filter((match) => {
       const previous = value[match.index - 1] ?? "";
@@ -28,18 +29,21 @@ function escapeMarkdown(value: string, inlineCode = false): string {
         end: length < 0 ? value.length : match.index + length,
       };
     });
-  // Conservatively retain fuzzy links without a TLD or Unicode domain table.
-  const domain = String.raw`[^\p{White_Space}\u001c-\u001f<>/@:?&.#\\]+(?:\.[^\p{White_Space}\u001c-\u001f<>/@:?&.#\\]+)+`;
-  const bareLink = new RegExp(
-    String.raw`(?<![^\p{White_Space}\u001c-\u001f"'(\[*_~])(?:(?://)?${domain}(?=[:/?#])|[^\p{White_Space}\u001c-\u001f<>/@]+@${domain})[^\p{White_Space}\u001c-\u001f<>]*`,
+  // Preserve protocol-relative and fuzzy links without a domain/TLD table.
+  for (const match of value.matchAll(/[^\p{White_Space}\u001c-\u001f<>]+/gu)) {
+    const token = match[0];
+    const dot = token.split("/", 1)[0]!.indexOf(".");
+    if (
+      token.includes("//") ||
+      (dot >= 0 && /[/?#]/u.test(token.slice(dot + 1)))
+    ) {
+      urls.push({ start: match.index, end: match.index + token.length });
+    }
+  }
+  const pattern = new RegExp(
+    /(?<!`)`[^`\n]+`(?!`)|[\\`*_\[\]<>]/u.source + "|" + entityAmp.source,
     "gu",
   );
-  for (const match of value.matchAll(bareLink)) {
-    urls.push({ start: match.index, end: match.index + match[0].length });
-  }
-  const pattern = inlineCode
-    ? /(?<!`)`[^`\n]+`(?!`)|[\\`*_\[\]<>&]/gu
-    : /[\\`*_\[\]<>&]/gu;
   return value.replace(pattern, (match, offset: number) =>
     match.length > 1 ||
     (match === "&" &&
@@ -51,25 +55,28 @@ function escapeMarkdown(value: string, inlineCode = false): string {
 
 /** Match report_projection._path_text with ensure_ascii for quoted scope paths. */
 export function pathText(value: string): string {
-  if (
-    !value.includes(",") &&
-    value === collapse(value) &&
-    !/[\u0000-\u001f]/u.test(value)
-  )
-    return escapeMarkdown(value);
+  const quoted =
+    value.includes(",") ||
+    value !== collapse(value) ||
+    /[\u0000-\u001f]/u.test(value);
+  if (!quoted && !entityAmp.test(value))
+    return value.replace(/([\\`*_\[\]<>])/gu, "\\$1");
 
   // Escape UTF-16 units so quoted paths do not depend on Unicode versions.
-  const label = JSON.stringify(value).replace(
-    /[\u007f-\uffff]/g,
-    (unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`,
-  );
+  const label = quoted
+    ? JSON.stringify(value).replace(
+        /[\u007f-\uffff]/g,
+        (unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`,
+      )
+    : value;
   const marker = "`".repeat(
     (label.match(/`+/gu) ?? []).reduce(
       (length, run) => Math.max(length, run.length + 1),
       1,
     ),
   );
-  return `${marker}${label}${marker}`;
+  const padding = label.startsWith("`") || label.endsWith("`") ? " " : "";
+  return `${marker}${padding}${label}${padding}${marker}`;
 }
 
 /** Plain metadata remains text; authored single-backtick spans remain intact. */
@@ -83,5 +90,5 @@ export function text(value: unknown, fallback = ""): string {
     )
       ? `Text: ${normalized}`
       : normalized;
-  return escapeMarkdown(protectedText, true);
+  return escapeMarkdown(protectedText);
 }

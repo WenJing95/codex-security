@@ -120,6 +120,12 @@ equivalent(
         "docs/www.example.com/&lt;tag&gt;.md",
         "docs/`&lt;tag&gt;`.md",
         "docs/a,&lt;tag&gt;.md",
+        "dir&lt;tag&gt;.example/file.md",
+        "dir.example/file&lt;tag&gt;.md",
+        "www.example.com/file&amp;.md",
+        "`&amp;`",
+        "`&amp;.md",
+        "file&amp;`",
       ],
       excludePaths: ["tmp/&amp;.md"],
       summary:
@@ -147,6 +153,10 @@ for (const url of [
   "//example.com/?first=1&word;=2",
   "user&tag@example.com",
   "mailto:user&tag@example.com",
+  "//localhost:8080/?first=1&word;=2",
+  "{//example.com/?first=1&word;=2}",
+  "?example.com/?first=1&word;=2",
+  "mailto:user&tag@localhost",
 ]) {
   equivalent(`footer URL ampersands ${url}`, markdownModel, {
     target: `${url} then &amp; and \`https://example.com/?a=1&b=2 &amp;\`.`,
@@ -275,6 +285,10 @@ test("Python finalizer recognizes native renderer bytes as the current projectio
       "\u{1fae9},notes.md",
       "docs/&lt;tag&gt;.md",
       "docs/a,&lt;tag&gt;.md",
+      "dir&lt;tag&gt;.example/file.md",
+      "dir.example/file&lt;tag&gt;.md",
+      "www.example.com/file&amp;.md",
+      "`&amp;`",
     ],
     excludePaths: [" "],
   };

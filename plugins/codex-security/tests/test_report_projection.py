@@ -811,7 +811,7 @@ def test_projection_keeps_html_entities_literal_in_markdown() -> None:
     markdown_text = PROJECTION.generate_report_markdown(manifest, findings, coverage).decode()
 
     assert r"Sanitizer decodes \&#x3C;script\&#x3E; and \&amp;lt;" in markdown_text
-    assert r"- Included paths: docs/\&lt;b\&gt;.md" in markdown_text
+    assert "- Included paths: `docs/&lt;b&gt;.md`" in markdown_text
 
 
 @pytest.mark.parametrize(
@@ -835,6 +835,10 @@ def test_projection_keeps_html_entities_literal_in_markdown() -> None:
         "//example.com/?first=1&word;=2",
         "user&tag@example.com",
         "mailto:user&tag@example.com",
+        "//localhost:8080/?first=1&word;=2",
+        "{//example.com/?first=1&word;=2}",
+        "?example.com/?first=1&word;=2",
+        "mailto:user&tag@localhost",
     ],
 )
 def test_projection_preserves_bare_url_ampersands_in_prose_and_tables(url: str) -> None:
@@ -847,7 +851,7 @@ def test_projection_preserves_bare_url_ampersands_in_prose_and_tables(url: str) 
 
     assert f"Reproduce with {url} then compare \\&amp;." in markdown
     assert f"| Confidence rationale | Request: {url} |" in markdown
-    assert r"R\&D decoded \&#60;tag\&#62;." in markdown
+    assert r"R&D decoded \&#60;tag\&#62;." in markdown
 
 
 def test_projection_preserves_inline_code_and_existing_url_escapes() -> None:
@@ -860,6 +864,12 @@ def test_projection_preserves_inline_code_and_existing_url_escapes() -> None:
     coverage["includePaths"] = [
         "docs/www.example.com/&lt;tag&gt;.md",
         "docs/`&lt;tag&gt;`.md",
+        "dir&lt;tag&gt;.example/file.md",
+        "dir.example/file&lt;tag&gt;.md",
+        "www.example.com/file&amp;.md",
+        "`&amp;`",
+        "`&amp;.md",
+        "file&amp;`",
     ]
 
     markdown = PROJECTION.generate_report_markdown(manifest, findings, coverage).decode()
@@ -867,8 +877,14 @@ def test_projection_preserves_inline_code_and_existing_url_escapes() -> None:
     assert "Compare `&amp;` and `https://example.com/?a=1&b=2 &amp;`" in markdown
     assert r"https://example.com/a\_b?first=1&second=2 and \&amp;." in markdown
     assert "Keep https://example.com/`a _b_` as written." in markdown
-    assert r"- Included paths: docs/www.example.com/\&lt;tag\&gt;.md" in markdown
-    assert r"docs/\`\&lt;tag\&gt;\`.md" in markdown
+    assert "- Included paths: `docs/www.example.com/&lt;tag&gt;.md`" in markdown
+    assert "``docs/`&lt;tag&gt;`.md``" in markdown
+    assert "`dir&lt;tag&gt;.example/file.md`" in markdown
+    assert "`dir.example/file&lt;tag&gt;.md`" in markdown
+    assert "`www.example.com/file&amp;.md`" in markdown
+    assert "`` `&amp;` ``" in markdown
+    assert "`` `&amp;.md ``" in markdown
+    assert "`` file&amp;` ``" in markdown
 
 
 def test_projection_omits_informational_findings() -> None:
