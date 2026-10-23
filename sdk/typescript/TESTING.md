@@ -119,7 +119,8 @@ The requirements file is the single list of pinned Python test dependencies. Ruf
 - Add property tests for meaningful invariants, with accepted and rejected
   inputs. Keep example-based regression tests for readable failure cases.
 - Give parameterized cases distinct names. Use `%p`, `%j`, or `%#` for values
-  that are not strings. The JUnit comparison rejects duplicate identities.
+  that are not strings. Duplicate identities remain valid; the JUnit comparison
+  checks their occurrence and outcome counts.
 
 Property tests use a fixed default seed. Fast-check prints the seed, shrink
 path, and counterexample on failure. To replay one property, select its file
@@ -147,12 +148,25 @@ package checks instead of repeating the same Bun suite. MCP and Python tests
 run in separate required jobs. Python uses four isolated pytest-xdist workers
 with work stealing; worker crashes fail the run without automatic restarts.
 
-`scripts/run-ci-tests.mts` discovers every shared test file and passes the
-inventory to Bun's native `--shard` option. Bun sorts the file paths and assigns
-them round-robin across the shards. New files are included automatically;
-there is no timing table to update when adding or splitting tests.
+`scripts/run-ci-tests.mts` discovers every shared test file and balances whole
+files using the platform's recorded durations in `scripts/test-timings.json`.
+It assigns longer files first to the shard with the least estimated work, then
+passes each shard's files directly to Bun. Every job uses the same checked-in
+snapshot. New files are included automatically with the mean known-file duration;
+deleted files in the timing snapshot are ignored. Timing hints never select or
+exclude tests, and adding or splitting tests does not require updating them.
 To reproduce one Windows shard locally after building the plugin, run
 `node --experimental-strip-types scripts/run-ci-tests.mts 3/7 --seed=12345`.
+
+Refresh timing hints from successful CI JUnit artifacts when shard runtimes
+become uneven. From the SDK directory, pass reports for one platform to
+`node --experimental-strip-types scripts/update-test-timings.mts win32 <junit.xml> ...`
+(use `linux` or `darwin` for the other platforms). The updater sums testcase
+durations per file and uses their median across reports, preserving the other
+platforms. Review and commit the generated snapshot. The initial hints use runs
+`39521539826`, `39694506447`, and `39694510011`. Keep runner versions, coverage,
+timeouts, seeds, and platform-specific checks unchanged when comparing scheduling
+changes; compare complete JUnit inventories and outcomes as well as wall time.
 
 Every Bun lane uploads JUnit; Linux lanes also upload LCOV per shard. Python
 reports include case durations, and the MCP runner can upload its JUnit report.
@@ -161,19 +175,40 @@ Failed tests and missing package artifacts block CI; failed diagnostic uploads
 do not. Use `python -m pytest -n 0` to reproduce Python failures serially.
 
 The separate `test-quality` workflow runs weekly, can be dispatched manually,
-and runs on pull requests that change its workflow file. It compares Bun's
-default runner, `--isolate`, `--parallel=2`, and seven-way Windows sharding.
-Every mode uses the same seed for property cases and test ordering: pull
-requests replay seed 1; scheduled and manual runs use the workflow run number.
-The workflow compares test identities and outcomes against the unsharded
-default run and records timings, including failed shards, in the job summary.
-It is not a required check or part of the release trigger.
+and runs on pull requests that change its workflow, setup tools, Bun configuration,
+shard runner, timing metadata, report comparator, or Windows test-root helper.
+It compares Bun's default runner, `--isolate`, and `--parallel=2` on Linux, macOS,
+and Windows.
+Each mode uses the same duration-based file assignment and production shard count:
+three on Linux/macOS and seven on Windows. This gives 39 sharded runner jobs in place
+of 19 jobs that included an unsharded Windows baseline. It measures the production
+partition rather than cross-file interactions across one unsharded suite; local
+full-suite runs still cover that ordering. More jobs add setup overhead, so compare
+workflow wall time and runner minutes, alongside shard test timings, before
+adopting a runner change.
 
-Runner trials use Bun 1.4.2 to avoid the
-[async-module initialization bug in 1.3.14](https://github.com/oven-sh/bun/issues/31410)
-that breaks the Ink UI tests under isolation. Keep the trial pin until a newer
-release passes the full SDK suite in every mode. Required CI and the mutation
-trial remain on Bun 1.3.14.
+Every mode uses the same seed for property cases and test ordering: pull requests
+replay seed 1; scheduled and manual runs use the workflow run number. Reports have
+unique OS/mode/shard names. The workflow requires every expected shard report
+before accepting comparisons, then compares complete shard groups by test
+identity, outcome, and occurrence count, retaining legitimate repeated names from
+parameterized tests while detecting missing or extra instances. It records every
+shard's timing, including failed shards, in the job summary. It is not a required
+check or part of the release trigger.
+
+Runner trials use Bun 1.4.3, including the
+[isolated subprocess fix](https://github.com/oven-sh/bun/pull/44581).
+`--parallel=2` runs files in two worker processes and isolates each file; it does
+not make tests inside one file concurrent. Required CI and the mutation trial
+remain on Bun 1.3.14 until a newer release passes the full SDK suite in every mode
+on all three platforms.
+
+Runner modes use the same property seed and coverage settings as each other.
+Required CI uses the default property seed and collects Linux coverage, while
+these diagnostics use the seed above and omit coverage instrumentation. Compare
+inventories across required CI and diagnostics, but measure scheduling speed
+between diagnostic modes to avoid attributing these differences to the runner.
+Both workflows install ripgrep on Linux so the inventory-path test executes.
 
 Keep the machine-policy test serial. Do not replace the full required suite
 with `--changed`: Python files, schemas, fixtures, and workflows loaded at
