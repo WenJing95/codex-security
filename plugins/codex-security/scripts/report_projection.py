@@ -21,7 +21,7 @@ DISPOSITION_LABELS = {
 }
 WRITEUP_REPORT_PATH_RE = re.compile(r"^findings/([a-z0-9][a-z0-9._-]*)/\1\.md$")
 INLINE_CODE_RE = r"(?<!`)`[^`\n]+`(?!`)"
-AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])www\.)[^\s<>]+"
+AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])(?i:www)\.)[^\s<>]+"
 
 
 class ReportProjectionError(ValueError):

@@ -820,6 +820,8 @@ def test_projection_keeps_html_entities_literal_in_markdown() -> None:
         "https://example.com/?first=1&second=2",
         "http://example.com/?payload=&#x3C;tag&#x3E;&mode=1",
         "www.example.com/?payload=&lt;tag&gt;&mode=1",
+        "WWW.example.com/?first=1&second=2",
+        "WwW.example.com/?first=1&second=2",
         "ftp://example.com/?first=1&second=2",
         "https://example.com/`a`?first=1&second=2",
         "www.example.com/`a`?first=1&second=2",

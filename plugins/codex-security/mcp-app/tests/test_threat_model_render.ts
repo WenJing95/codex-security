@@ -109,6 +109,38 @@ equivalent(
     },
   },
 );
+equivalent(
+  "footer entities remain literal in prose and scope paths",
+  {
+    ...markdownModel,
+    origin: "provided",
+    scope: {
+      includePaths: [
+        "docs/&lt;tag&gt;.md",
+        "docs/www.example.com/&lt;tag&gt;.md",
+        "docs/`&lt;tag&gt;`.md",
+        "docs/a,&lt;tag&gt;.md",
+      ],
+      excludePaths: ["tmp/&amp;.md"],
+      summary:
+        "R&D decodes &#x3C;tag&#x3E; and &amp;lt;. Keep `&amp;` literal.",
+    },
+  },
+  { target: "R&D &lt;workspace&gt;" },
+);
+for (const url of [
+  "https://example.com/?first=1&second=2",
+  "http://example.com/?payload=&#x3C;tag&#x3E;&mode=1",
+  "ftp://example.com/?first=1&second=2",
+  "www.example.com/?payload=&lt;tag&gt;&mode=1",
+  "WWW.example.com/?first=1&second=2",
+  "WwW.example.com/?first=1&second=2",
+  "https://example.com/`a`?first=1&second=2",
+]) {
+  equivalent(`footer URL ampersands ${url}`, markdownModel, {
+    target: `${url} then &amp; and \`https://example.com/?a=1&b=2 &amp;\`.`,
+  });
+}
 for (const ending of ["", "\n", "\n\n", "\r\n"]) {
   equivalent(`authored Markdown ending ${JSON.stringify(ending)}`, {
     ...markdownModel,
@@ -180,10 +212,10 @@ test("Python finalizer recognizes native renderer bytes as the current projectio
     status: "running",
     threatModel,
     target: {
-      displayName: "Example [workspace]",
+      displayName: "R&D &lt;workspace&gt;",
       revision: "example-revision",
     },
-    scope: { includePaths: ["src"], excludePaths: [] },
+    scope: { includePaths: ["src", "docs/&lt;tag&gt;.md"], excludePaths: [] },
   };
   const markdown = renderThreatModel({
     threatModel,
