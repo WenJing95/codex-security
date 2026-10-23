@@ -825,6 +825,16 @@ def test_projection_keeps_html_entities_literal_in_markdown() -> None:
         "ftp://example.com/?first=1&second=2",
         "https://example.com/`a`?first=1&second=2",
         "www.example.com/`a`?first=1&second=2",
+        "example.com/?first=1&second=2",
+        "//example.com/?first=1&second=2",
+        '"example.com/?first=1&second=2"',
+        "éxample.com/?first=1&second=2",
+        "例子.com/?first=1&second=2",
+        "example.com/?payload=&lt;tag&gt;&mode=1",
+        "example.com/?first=1&word;=2",
+        "//example.com/?first=1&word;=2",
+        "user&tag@example.com",
+        "mailto:user&tag@example.com",
     ],
 )
 def test_projection_preserves_bare_url_ampersands_in_prose_and_tables(url: str) -> None:

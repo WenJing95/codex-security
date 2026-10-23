@@ -28,6 +28,15 @@ function escapeMarkdown(value: string, inlineCode = false): string {
         end: length < 0 ? value.length : match.index + length,
       };
     });
+  // Conservatively retain fuzzy links without a TLD or Unicode domain table.
+  const domain = String.raw`[^\p{White_Space}\u001c-\u001f<>/@:?&.#\\]+(?:\.[^\p{White_Space}\u001c-\u001f<>/@:?&.#\\]+)+`;
+  const bareLink = new RegExp(
+    String.raw`(?<![^\p{White_Space}\u001c-\u001f"'(\[*_~])(?:(?://)?${domain}(?=[:/?#])|[^\p{White_Space}\u001c-\u001f<>/@]+@${domain})[^\p{White_Space}\u001c-\u001f<>]*`,
+    "gu",
+  );
+  for (const match of value.matchAll(bareLink)) {
+    urls.push({ start: match.index, end: match.index + match[0].length });
+  }
   const pattern = inlineCode
     ? /(?<!`)`[^`\n]+`(?!`)|[\\`*_\[\]<>&]/gu
     : /[\\`*_\[\]<>&]/gu;

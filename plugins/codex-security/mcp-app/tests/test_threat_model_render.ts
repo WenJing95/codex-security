@@ -136,6 +136,17 @@ for (const url of [
   "WWW.example.com/?first=1&second=2",
   "WwW.example.com/?first=1&second=2",
   "https://example.com/`a`?first=1&second=2",
+  "example.com/?first=1&second=2",
+  "//example.com/?first=1&second=2",
+  '"example.com/?first=1&second=2"',
+  "[example.com/?first=1&second=2]",
+  "éxample.com/?first=1&second=2",
+  "例子.com/?first=1&second=2",
+  "example.com/?payload=&lt;tag&gt;&mode=1",
+  "example.com/?first=1&word;=2",
+  "//example.com/?first=1&word;=2",
+  "user&tag@example.com",
+  "mailto:user&tag@example.com",
 ]) {
   equivalent(`footer URL ampersands ${url}`, markdownModel, {
     target: `${url} then &amp; and \`https://example.com/?a=1&b=2 &amp;\`.`,

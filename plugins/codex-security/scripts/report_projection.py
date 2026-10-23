@@ -22,6 +22,11 @@ DISPOSITION_LABELS = {
 WRITEUP_REPORT_PATH_RE = re.compile(r"^findings/([a-z0-9][a-z0-9._-]*)/\1\.md$")
 INLINE_CODE_RE = r"(?<!`)`[^`\n]+`(?!`)"
 AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])(?i:www)\.)[^\s<>]+"
+LINK_DOMAIN_RE = r"[^\s<>/@:?&.#\\]+(?:\.[^\s<>/@:?&.#\\]+)+"
+BARE_LINK_RE = (
+    rf"(?<![^\s\"'(\[*_~])(?:(?://)?{LINK_DOMAIN_RE}(?=[:/?#])"
+    rf"|[^\s<>/@]+@{LINK_DOMAIN_RE})[^\s<>]*"
+)
 
 
 class ReportProjectionError(ValueError):
@@ -30,7 +35,11 @@ class ReportProjectionError(ValueError):
 
 def _escape_markdown(value: str, *, inline_code: bool = False) -> str:
     # Locate whole URLs before matching code spans: a URL can contain backticks.
-    urls = [match.span() for match in re.finditer(AUTOLINK_RE, value)]
+    urls = [
+        match.span()
+        for pattern in (AUTOLINK_RE, BARE_LINK_RE)
+        for match in re.finditer(pattern, value)
+    ]
     punctuation = r"[\\`*_\[\]<>&]"
     pattern = f"(?P<code>{INLINE_CODE_RE})|{punctuation}" if inline_code else punctuation
 
