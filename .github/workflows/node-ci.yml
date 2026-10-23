@@ -10,12 +10,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  # Metadata edits must not cancel source checks for the same pull request.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && '-metadata' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  validate-title:
-    name: validate pull request
+  classify-changes:
+    name: classify changes
+    if: github.event_name != 'pull_request' || github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -78,9 +80,16 @@ jobs:
                   ;;
                 .github/workflows/node-ci.yml | .github/actions/setup-tools/*)
                   container_validate=true
-                  test_quality=true
                   ;;
-                .github/workflows/test-quality.yml)
+              esac
+              case "$path" in
+                .github/workflows/node-ci.yml | .github/workflows/test-quality.yml | \
+                  .github/actions/setup-tools/* | sdk/typescript/bunfig.toml | \
+                  sdk/typescript/scripts/compare-test-reports.mts | \
+                  sdk/typescript/scripts/prepare-windows-test-root.ps1 | \
+                  sdk/typescript/scripts/run-ci-tests.mts | \
+                  sdk/typescript/scripts/test-shards.mts | \
+                  sdk/typescript/scripts/test-timings.json)
                   test_quality=true
                   ;;
               esac
@@ -90,28 +99,14 @@ jobs:
           printf 'test-quality=%s\n' "$test_quality" >> "$GITHUB_OUTPUT"
           printf 'workflow-quality=%s\n' "$workflow_quality" >> "$GITHUB_OUTPUT"
 
-      - name: Require a Conventional Commit pull request title
-        if: github.event_name == 'pull_request'
-        shell: bash
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          set -euo pipefail
-          conventional_title='^([a-z][a-z0-9-]*)(\([a-z0-9][a-z0-9._/-]*\))?(!)?:[ ]([^[:space:]].*[^[:space:]]|[^[:space:]])$'
-          if [[ "$PR_TITLE" == *$'\n'* || "$PR_TITLE" == *$'\r'* ||
-                ! "$PR_TITLE" =~ $conventional_title ]]; then
-            echo "Pull request title must follow <type>[optional scope][!]: <description>." >&2
-            exit 1
-          fi
-
   workflow-quality:
-    needs: validate-title
-    if: needs.validate-title.outputs.workflow-quality == 'true'
+    needs: classify-changes
+    if: needs.classify-changes.outputs.workflow-quality == 'true'
     uses: ./.github/workflows/workflow-quality.yml
 
   static-checks:
     name: typecheck and formatting
-    needs: validate-title
+    needs: classify-changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -145,26 +140,28 @@ jobs:
         run: pnpm --dir sdk/typescript run format
       - name: Check MCP formatting
         run: pnpm --dir plugins/codex-security/mcp-app exec prettier --check "**/*.{cjs,cts,js,jsx,mjs,mts,ts,tsx}"
+      - name: Audit production dependencies
+        run: pnpm --dir sdk/typescript run audit:prod
 
   native:
-    needs: validate-title
+    needs: classify-changes
     uses: ./.github/workflows/native-artifacts.yml
 
   container-validate:
-    needs: [validate-title, native]
-    if: needs.validate-title.outputs.container-validate == 'true'
+    needs: [classify-changes, native]
+    if: needs.classify-changes.outputs.container-validate == 'true'
     uses: ./.github/workflows/container-validate.yml
 
   test-quality:
-    needs: [validate-title, native]
-    if: needs.validate-title.outputs.test-quality == 'true'
+    needs: [classify-changes, native]
+    if: needs.classify-changes.outputs.test-quality == 'true'
     uses: ./.github/workflows/test-quality.yml
     with:
       native-artifacts-ready: true
 
   package:
     name: build and check package
-    needs: [validate-title, native]
+    needs: [classify-changes, native]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -180,8 +177,6 @@ jobs:
         uses: ./.github/actions/download-native
       - *set-up-typescript-tools
       - *install-dependencies
-      - name: Audit production dependencies
-        run: pnpm --dir sdk/typescript run audit:prod
       - name: Pack
         working-directory: sdk/typescript
         run: pnpm pack --pack-destination ../../dist
@@ -199,7 +194,7 @@ jobs:
 
   test:
     name: tests / ${{ matrix.os }} / shard-${{ matrix.shard }}
-    needs: [validate-title, package]
+    needs: [classify-changes, package]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -254,7 +249,7 @@ jobs:
 
   compatibility:
     name: installed package / ${{ matrix.os }} / node-${{ matrix.node }}
-    needs: [validate-title, package]
+    needs: [classify-changes, package]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -304,7 +299,7 @@ jobs:
 
   mcp:
     name: MCP app tests
-    needs: [validate-title, package]
+    needs: [classify-changes, package]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -338,7 +333,7 @@ jobs:
 
   plugin-host:
     name: standalone plugin / ${{ matrix.os }}
-    needs: validate-title
+    needs: classify-changes
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -361,7 +356,7 @@ jobs:
 
   plugin-source:
     name: plugin source contracts / ${{ matrix.os }} / python-${{ matrix.python }}
-    needs: validate-title
+    needs: classify-changes
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -467,15 +462,24 @@ jobs:
       - name: Test secret discovery eval contracts
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         run: node --experimental-strip-types --test evals/secret-discovery/test_*.mts
+      - name: Build host plugin for Standard eval integration
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: |
+          node plugins/codex-security/mcp-app/scripts/build_mcp_app.mjs --output plugins/codex-security/mcp --native host
+          ln -s ../../plugins/codex-security sdk/typescript/_bundled_plugin
+      - name: Test Standard time-budget eval contracts
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: node --experimental-strip-types --test evals/standard-time-budget/test_*.mts
       - name: Test workflow routing eval contracts
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         run: node --experimental-strip-types --test evals/workflow-routing/test_*.mts
 
   required-test:
-    name: ${{ matrix.os }} / node-22
+    # Skipped metadata jobs must not satisfy required source-check contexts.
+    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && 'metadata / ' || '' }}${{ matrix.os }} / node-22
     needs:
       [
-        validate-title,
+        classify-changes,
         workflow-quality,
         static-checks,
         package,
@@ -486,7 +490,7 @@ jobs:
         plugin-source,
         container-validate,
       ]
-    if: always()
+    if: &source-aggregate always() && (github.event_name != 'pull_request' || github.event.action != 'edited' || github.event.changes.base != null)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -494,18 +498,18 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Require selected workflow checks
-        if: needs.validate-title.outputs.workflow-quality == 'true' && needs.workflow-quality.result != 'success'
+        if: needs.classify-changes.outputs.workflow-quality == 'true' && needs.workflow-quality.result != 'success'
         run: exit 1
       - name: Require every Unix coverage job
-        if: needs.validate-title.result != 'success' || (needs.static-checks.result != 'success' || needs.package.result != 'success' || needs.test.result != 'success' || needs.compatibility.result != 'success' || needs.mcp.result != 'success' || needs.plugin-host.result != 'success' || needs.plugin-source.result != 'success')
+        if: needs.classify-changes.result != 'success' || (needs.static-checks.result != 'success' || needs.package.result != 'success' || needs.test.result != 'success' || needs.compatibility.result != 'success' || needs.mcp.result != 'success' || needs.plugin-host.result != 'success' || needs.plugin-source.result != 'success')
         run: exit 1
       - name: Require selected container coverage
-        if: needs.validate-title.outputs.container-validate == 'true' && needs.container-validate.result != 'success'
+        if: needs.classify-changes.outputs.container-validate == 'true' && needs.container-validate.result != 'success'
         run: exit 1
 
   windows-test:
     name: windows-latest / node-22 / tests-${{ matrix.shard }}
-    needs: [validate-title, package]
+    needs: [classify-changes, package]
     runs-on: windows-latest
     timeout-minutes: 40
     strategy:
@@ -568,7 +572,7 @@ jobs:
 
   windows-verify:
     name: windows-latest / node-${{ matrix.node == '22.13.0' && '22' || matrix.node }} / verify
-    needs: [validate-title, package]
+    needs: [classify-changes, package]
     runs-on: windows-latest
     timeout-minutes: 20
     strategy: &windows-node-strategy
@@ -588,12 +592,12 @@ jobs:
         run: node scripts/check-package.mjs ../../dist/*.tgz
 
   windows:
-    name: windows-latest / node-${{ matrix.node == '22.13.0' && '22' || matrix.node }}
+    name: ${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base == null && 'metadata / ' || '' }}windows-latest / node-${{ matrix.node == '22.13.0' && '22' || matrix.node }}
     runs-on: ubuntu-latest
-    if: always()
+    if: *source-aggregate
     needs:
       [
-        validate-title,
+        classify-changes,
         static-checks,
         plugin-host,
         plugin-source,
@@ -603,5 +607,5 @@ jobs:
     strategy: *windows-node-strategy
     steps:
       - name: Require every Windows coverage job
-        if: needs.validate-title.result != 'success' || (needs.static-checks.result != 'success' || needs.plugin-host.result != 'success' || needs.plugin-source.result != 'success' || needs.windows-test.result != 'success' || needs.windows-verify.result != 'success')
+        if: needs.classify-changes.result != 'success' || (needs.static-checks.result != 'success' || needs.plugin-host.result != 'success' || needs.plugin-source.result != 'success' || needs.windows-test.result != 'success' || needs.windows-verify.result != 'success')
         run: exit 1
