@@ -104,7 +104,9 @@ def _scope_lines(scope: Any, label: str, text: Callable[[Any, str], str]) -> lis
     lines = [f"- {label}: {', '.join(map(report._path_text, included)) or 'none'}"]
     excluded = scope.get("excludePaths")
     if isinstance(excluded, list) and excluded and all(isinstance(path, str) for path in excluded):
-        lines.append(f"- {label} exclusions: {', '.join(map(report._path_text, excluded))}")
+        lines.append(
+            f"- {label} exclusions: {', '.join(map(report._path_text, excluded)) or 'none'}"
+        )
     summary = scope.get("summary")
     if isinstance(summary, str) and summary:
         lines.append(f"- {label} description: {text(summary, 'not recorded')}")
