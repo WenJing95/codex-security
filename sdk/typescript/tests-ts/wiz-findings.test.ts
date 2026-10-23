@@ -890,6 +890,12 @@ test.each([
     CVSSSeverity: "",
     expected: "informational",
   },
+  {
+    Severity: "NONE",
+    VendorSeverity: "",
+    CVSSSeverity: "",
+    expected: "informational",
+  },
 ])(
   "Wiz CSV uses the reported severity fallback %j",
   async ({ expected, ...severity }) => {
@@ -899,6 +905,26 @@ test.each([
     expect(parsed.findings[0]!.evidence.severity).toBe(expected);
   },
 );
+
+test("Wiz JSON reads the NONE vendor severity as informational", async () => {
+  const parsed = await parse(
+    envelope(
+      "vulnerabilityFindings",
+      [
+        {
+          id: "vendor-none",
+          name: "CVE-2099-0001",
+          detailedName: "example-package",
+          vendorSeverity: "NONE",
+          vulnerableAsset: { id: "synthetic-asset" },
+        },
+      ],
+      false,
+    ),
+  );
+  expect(parsed.excluded).toEqual([]);
+  expect(parsed.findings[0]!.evidence.severity).toBe("informational");
+});
 
 test.each([
   { ID: "" },
