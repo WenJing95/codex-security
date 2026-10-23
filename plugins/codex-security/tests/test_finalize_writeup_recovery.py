@@ -58,6 +58,9 @@ def test_windows_writeup_recovery_only_omits_missing_files(tmp_path, monkeypatch
         warnings = FINALIZER._prepare_derived_writeups(tmp_path, findings, allow_missing=True)
         assert findings == {"findings": [{}]}
         assert len(warnings) == 1
+        assert warnings[0].endswith(
+            "findings[0].writeup.reportPath: expected a file inside the scan directory."
+        )
     else:
         with pytest.raises(FINALIZER.ContractError):
             FINALIZER._prepare_derived_writeups(tmp_path, findings, allow_missing=True)
