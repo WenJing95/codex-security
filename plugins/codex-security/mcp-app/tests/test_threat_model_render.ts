@@ -111,8 +111,16 @@ equivalent(
 );
 for (const [paths, expected] of [
   [
-    [".", "src/", "path with space", "src/[queue]", "tmp/*"],
-    String.raw`., src/, path with space, src/\[queue\], tmp/\*`,
+    [
+      ".",
+      "src/",
+      "path with space",
+      "src/[queue]",
+      "tmp/*",
+      "Résumé.md",
+      "😀.md",
+    ],
+    String.raw`., src/, path with space, src/\[queue\], tmp/\*, Résumé.md, 😀.md`,
   ],
   [
     ["a,b.ts", "a, b.ts", "a  b", "a b", " ", "  "],
@@ -123,8 +131,18 @@ for (const [paths, expected] of [
     '``" a`b "``, ```"a``b,c"```, \\`literal\\`',
   ],
   [
-    ["docs/Résumé, final.md", "a\u202eb, c.md", "a\u00a0b", "😀, c.md"],
-    '`"docs/Résumé, final.md"`, `"a\\u202eb, c.md"`, `"a\\u00a0b"`, `"😀, c.md"`',
+    [
+      "docs/Résumé, final.md",
+      "a\u202eb, c.md",
+      "a\u00a0b",
+      "😀, c.md",
+      "\u{1fae9},notes.md",
+    ],
+    '`"docs/R\\u00e9sum\\u00e9, final.md"`, `"a\\u202eb, c.md"`, `"a\\u00a0b"`, `"\\ud83d\\ude00, c.md"`, `"\\ud83e\\udee9,notes.md"`',
+  ],
+  [
+    ["a\u001bb", "a\u007fb, c.md", "a\nb", "a\tb"],
+    '`"a\\u001bb"`, `"a\\u007fb, c.md"`, `"a\\nb"`, `"a\\tb"`',
   ],
 ] satisfies [string[], string][]) {
   test(`literal scope paths match Python: ${JSON.stringify(paths)}`, () => {
@@ -207,7 +225,7 @@ test("non-object models report a threatModel diagnostic", () => {
 
 test("Python finalizer recognizes native renderer bytes as the current projection", () => {
   const scope = {
-    includePaths: ["src", "a,b.ts", "a  b"],
+    includePaths: ["src", "a,b.ts", "a  b", "\u{1fae9},notes.md"],
     excludePaths: [" "],
   };
   const threatModel = { summary: "Saved model", assets: ["Queue"], scope };

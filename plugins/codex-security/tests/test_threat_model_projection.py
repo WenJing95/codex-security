@@ -98,6 +98,18 @@ class ThreatModelProjectionTest(ScanFixtureTestCase):
             self.assertIn(label + b": none\n", document)
             self.assertIn(label + b" exclusions: none\n", document)
 
+    def test_quoted_scope_paths_use_version_independent_unicode_escapes(self) -> None:
+        scope = {"includePaths": ["Résumé.md", "Résumé, final.md", "\U0001fae9,notes.md"]}
+        document = FINALIZER._render_threat_model(
+            {"summary": "Existing structured model.", "scope": scope}, {"scanScope": scope}
+        ).decode()
+        for label in ("Model scope", "Scan scope"):
+            self.assertIn(
+                f'- {label}: Résumé.md, `"R\\u00e9sum\\u00e9, final.md"`, '
+                '`"\\ud83e\\udee9,notes.md"`\n',
+                document,
+            )
+
     def test_exports_legacy_structured_model_extensions(self) -> None:
         for extensions, expected_origin in (
             ({"format": "markdown"}, "not recorded"),
