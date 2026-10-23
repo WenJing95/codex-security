@@ -20,10 +20,29 @@ DISPOSITION_LABELS = {
     "needs_follow_up": "Needs follow-up",
 }
 WRITEUP_REPORT_PATH_RE = re.compile(r"^findings/([a-z0-9][a-z0-9._-]*)/\1\.md$")
+INLINE_CODE_RE = r"(?<!`)`[^`\n]+`(?!`)"
+AUTOLINK_RE = r"(?:(?<![A-Za-z])(?i:https?|ftp)://|(?<![^\s*_~(])www\.)[^\s<>]+"
 
 
 class ReportProjectionError(ValueError):
     """Raised when a canonical scan cannot be projected into a valid report."""
+
+
+def _escape_markdown(value: str, *, inline_code: bool = False) -> str:
+    # Locate whole URLs before matching code spans: a URL can contain backticks.
+    urls = [match.span() for match in re.finditer(AUTOLINK_RE, value)]
+    punctuation = r"[\\`*_\[\]<>&]"
+    pattern = f"(?P<code>{INLINE_CODE_RE})|{punctuation}" if inline_code else punctuation
+
+    def escape(match: re.Match[str]) -> str:
+        if match.lastgroup == "code":
+            return match[0]
+        # GFM autolinks keep backslashes literally, including before query separators.
+        if match[0] == "&" and any(start <= match.start() < end for start, end in urls):
+            return "&"
+        return "\\" + match[0]
+
+    return re.sub(pattern, escape, value)
 
 
 def _text(value: Any, fallback: str) -> str:
@@ -31,10 +50,7 @@ def _text(value: Any, fallback: str) -> str:
     normalized = " ".join(candidate.split())
     if re.match(r"^(?:#{1,6}\s|[-*+]\s|>\s|```|~~~|\d+[.)]\s|\|)", normalized):
         normalized = f"Text: {normalized}"
-    return "".join(
-        part if index % 2 else re.sub(r"([\\`*_\[\]<>&])", r"\\\1", part)
-        for index, part in enumerate(re.split(r"((?<!`)`[^`\n]+`(?!`))", normalized))
-    )
+    return _escape_markdown(normalized, inline_code=True)
 
 
 def _strings(value: Any) -> list[str]:
@@ -57,7 +73,7 @@ def _path_text(value: str) -> str:
     if label != value:
         marker = _code_fence(label, minimum=1)
         return f"{marker}{label}{marker}"
-    return re.sub(r"([\\`*_\[\]<>&])", r"\\\1", value)
+    return _escape_markdown(value)
 
 
 def _cell(value: Any) -> str:

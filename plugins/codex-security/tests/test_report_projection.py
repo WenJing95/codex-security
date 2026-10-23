@@ -814,6 +814,51 @@ def test_projection_keeps_html_entities_literal_in_markdown() -> None:
     assert r"- Included paths: docs/\&lt;b\&gt;.md" in markdown_text
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/?first=1&second=2",
+        "http://example.com/?payload=&#x3C;tag&#x3E;&mode=1",
+        "www.example.com/?payload=&lt;tag&gt;&mode=1",
+        "ftp://example.com/?first=1&second=2",
+        "https://example.com/`a`?first=1&second=2",
+        "www.example.com/`a`?first=1&second=2",
+    ],
+)
+def test_projection_preserves_bare_url_ampersands_in_prose_and_tables(url: str) -> None:
+    manifest, findings, coverage = canonical_documents()
+    finding = findings["findings"][0]
+    finding["summary"] = f"R&D decoded &#60;tag&#62;. Reproduce with {url} then compare &amp;."
+    finding["confidence"]["rationale"] = f"Request: {url}"
+
+    markdown = PROJECTION.generate_report_markdown(manifest, findings, coverage).decode()
+
+    assert f"Reproduce with {url} then compare \\&amp;." in markdown
+    assert f"| Confidence rationale | Request: {url} |" in markdown
+    assert r"R\&D decoded \&#60;tag\&#62;." in markdown
+
+
+def test_projection_preserves_inline_code_and_existing_url_escapes() -> None:
+    manifest, findings, coverage = canonical_documents()
+    findings["findings"][0]["summary"] = (
+        "Compare `&amp;` and `https://example.com/?a=1&b=2 &amp;` with "
+        "https://example.com/a_b?first=1&second=2 and &amp;. "
+        "Keep https://example.com/`a _b_` as written."
+    )
+    coverage["includePaths"] = [
+        "docs/www.example.com/&lt;tag&gt;.md",
+        "docs/`&lt;tag&gt;`.md",
+    ]
+
+    markdown = PROJECTION.generate_report_markdown(manifest, findings, coverage).decode()
+
+    assert "Compare `&amp;` and `https://example.com/?a=1&b=2 &amp;`" in markdown
+    assert r"https://example.com/a\_b?first=1&second=2 and \&amp;." in markdown
+    assert "Keep https://example.com/`a _b_` as written." in markdown
+    assert r"- Included paths: docs/www.example.com/\&lt;tag\&gt;.md" in markdown
+    assert r"docs/\`\&lt;tag\&gt;\`.md" in markdown
+
+
 def test_projection_omits_informational_findings() -> None:
     manifest, findings, coverage = canonical_documents()
     findings["findings"][0]["severity"]["level"] = "informational"
