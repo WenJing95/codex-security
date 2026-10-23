@@ -114,8 +114,7 @@ export function wizCsvFinding(
           .filter(Boolean)
           .join(" "),
         description: text(row["Description"]),
-        // Wiz rates a vulnerability with no impact as NONE, the CVSS 0.0 rating.
-        severity: severity === "none" ? "informational" : severity,
+        severity: severity === "none" ? "unknown" : severity,
         url: text(row["WizURL"]),
         advisory_ids: [name],
         packages: [

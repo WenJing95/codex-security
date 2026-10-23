@@ -90,8 +90,7 @@ function wizFinding(
       text(record["title"]) ??
       [packageName, version, name].filter(Boolean).join(" "),
     description: text(record["description"]),
-    // Wiz rates a vulnerability with no impact as NONE, the CVSS 0.0 rating.
-    severity: severity === "none" ? "informational" : severity,
+    severity: severity === "none" ? "unknown" : severity,
     url: text(record["portalUrl"]),
     advisory_ids: [text(record["vulnerabilityExternalId"]) ?? name],
     packages: [
