@@ -2862,3 +2862,40 @@ test("shows saved review counts separately from file coverage", () => {
     dashboard.stop();
   }
 });
+
+test("shows saved review counts in the component table", () => {
+  const stderr = capture(true);
+  const dashboard = createDashboard(stderr.stream, {
+    presentation: "components",
+  });
+  const receipt: ComponentReceipt = {
+    id: "api",
+    name: "API",
+    paths: ["api"],
+    status: "started",
+    outputDir: "/synthetic/results/api",
+  };
+  dashboard.start();
+  try {
+    dashboard.setComponents([receipt]);
+    dashboard.recordComponentEvent({
+      componentId: receipt.id,
+      type: "progress",
+      value: {
+        phase: "validation",
+        filesCompleted: 0,
+        filesTotal: 8,
+        reviewItems: { completed: 11, total: 13 },
+      },
+    });
+    const row = stripVTControlCharacters(
+      stderr.text().split("\u001B[H").at(-1)!,
+    )
+      .split("\n")
+      .find((line) => line.includes("API"));
+    expect(row).toContain("11/13");
+    expect(row).not.toContain("0/8");
+  } finally {
+    dashboard.stop();
+  }
+});

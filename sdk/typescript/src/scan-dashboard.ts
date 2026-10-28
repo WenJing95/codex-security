@@ -948,16 +948,19 @@ export class ScanDashboard {
     const table = this.#components
       .slice(first, first + rows)
       .map(({ receipt, dashboard }, index) => {
-        const files = dashboard.#files;
+        const progress =
+          dashboard.#files === null
+            ? null
+            : scanProgressCount(dashboard.#files);
         return row(
           first + index === this.#selectedComponent ? "›" : " ",
           receipt.name,
           receipt.status === "started"
             ? dashboard.#stage
             : componentStatus(receipt),
-          files === null
+          progress === null
             ? "—"
-            : `${formatCount(files.filesCompleted)}/${formatCount(files.filesTotal)}`,
+            : `${formatCount(progress.completed)}/${formatCount(progress.total)}`,
           receipt.findingCount === undefined
             ? "—"
             : formatCount(receipt.findingCount),
@@ -984,7 +987,7 @@ export class ScanDashboard {
       divider,
       `  ${count("completed")} complete · ${count("started")} running · ${count("pending")} queued · ${count("failed")} failed`,
       "",
-      row(" ", "Component", "Status", "Files", "Findings", "Cost"),
+      row(" ", "Component", "Status", "Progress", "Findings", "Cost"),
       ...table,
       divider,
       `  SCOPE    ${selected?.paths.join(", ") ?? "waiting for component plan"}`,
