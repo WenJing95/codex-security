@@ -99399,7 +99399,7 @@ async function uploadReports(reports, inputs, tempRoot) {
 // src/reporting.ts
 function plain(value, limit) {
   const text = value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, "");
-  return text.slice(0, limit);
+  return text.slice(0, limit).replace(/[\uD800-\uDBFF]$/, "");
 }
 function html(value) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/@/g, "&#64;").replace(/\r/g, "&#13;").replace(/\n/g, "&#10;").replace(/[\\`*_\[\]~]/g, (character) => `&#${character.charCodeAt(0)};`);

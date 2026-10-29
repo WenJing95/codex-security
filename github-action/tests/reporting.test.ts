@@ -10,6 +10,9 @@ test('credential-shaped text and encodings remain in diagnostics',()=>{
     assert.equal(plain(text),text);
   }
 });
+test('truncated text does not end in half of a surrogate pair',()=>{
+  assert.equal(plain(`${'a'.repeat(199)}😀`,200),'a'.repeat(199));
+});
 test('finding titles and messages cannot become Markdown links, images or raw HTML',()=>{
   const result = {scanStatus:'completed',policyStatus:'passed',reportStatus:'ready',counts:{critical:0,high:1,medium:0,low:0,informational:0},errors:[],
     findings:[{severity:'high',title:'![click](https://example.invalid) <img src=x> @someone',summary:'</pre><script>bad</script>',path:'src/app.ts',startLine:1}]} as unknown as ScanResults;
