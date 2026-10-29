@@ -922,16 +922,45 @@ export class ScanDashboard {
         this.#components.length - rows,
       ),
     );
+    const visible = this.#components
+      .slice(first, first + rows)
+      .map(({ receipt, dashboard }) => {
+        const count =
+          dashboard.#files === null
+            ? null
+            : scanProgressCount(dashboard.#files);
+        const progress =
+          count === null
+            ? "—"
+            : `${formatCount(count.completed)}/${formatCount(count.total)} ${count.label}`;
+        const status =
+          receipt.status === "started"
+            ? dashboard.#stage
+            : componentStatus(receipt);
+        return { receipt, dashboard, status, progress };
+      });
+    const progressWidth = Math.max(
+      "Progress".length,
+      ...visible.map(({ progress }) => progress.length),
+    );
     const costWidth = Math.max(
       8,
       ...this.#components.map(({ dashboard }) =>
         dashboard.#cost === null ? 1 : formatScanCost(dashboard.#cost).length,
       ),
     );
-    const nameWidth = Math.max(
-      10,
-      width - 52 - (this.#showCost ? costWidth + 1 : 0),
+    const nameAndStatusWidth =
+      width - 17 - progressWidth - (this.#showCost ? costWidth + 1 : 0);
+    // When space is tight, share the original 35 status and progress columns
+    // so adding the unit doesn't push the cost amount offscreen.
+    const statusWidth = Math.min(
+      Math.max(
+        "Status".length,
+        ...visible.map(({ status }) => stringWidth(status)),
+      ),
+      Math.max("Status".length, 35 - progressWidth, nameAndStatusWidth - 10),
     );
+    const nameWidth = Math.max(10, nameAndStatusWidth - statusWidth);
     const cell = (value: string, width: number): string => {
       const text = fitLine(value, width);
       return text + " ".repeat(width - stringWidth(text));
@@ -940,33 +969,24 @@ export class ScanDashboard {
       marker: string,
       name: string,
       status: string,
-      files: string,
+      progress: string,
       findings: string,
       cost: string,
     ): string =>
-      `  ${marker} ${cell(name, nameWidth)} ${cell(status, 24)} ${files.padStart(11)} ${findings.padStart(8)}${this.#showCost ? ` ${cost.padStart(8)}` : ""}`;
-    const table = this.#components
-      .slice(first, first + rows)
-      .map(({ receipt, dashboard }, index) => {
-        const progress =
-          dashboard.#files === null
-            ? null
-            : scanProgressCount(dashboard.#files);
-        return row(
+      `  ${marker} ${cell(name, nameWidth)} ${cell(status, statusWidth)} ${progress.padStart(progressWidth)} ${findings.padStart(8)}${this.#showCost ? ` ${cost.padStart(8)}` : ""}`;
+    const table = visible.map(
+      ({ receipt, dashboard, status, progress }, index) =>
+        row(
           first + index === this.#selectedComponent ? "›" : " ",
           receipt.name,
-          receipt.status === "started"
-            ? dashboard.#stage
-            : componentStatus(receipt),
-          progress === null
-            ? "—"
-            : `${formatCount(progress.completed)}/${formatCount(progress.total)}`,
+          status,
+          progress,
           receipt.findingCount === undefined
             ? "—"
             : formatCount(receipt.findingCount),
           dashboard.#cost === null ? "—" : formatScanCost(dashboard.#cost),
-        );
-      });
+        ),
+    );
     if (table.length === 0) table.push(`  ${this.#stage}…`);
     while (table.length < rows) table.push("");
     const count = (status: ComponentReceipt["status"]) =>
