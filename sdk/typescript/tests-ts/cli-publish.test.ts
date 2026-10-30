@@ -2146,34 +2146,54 @@ describe("publish scan", () => {
     expect(JSON.parse(stdout.text())).toEqual(publicationResult());
   });
 
-  test("keeps whole characters when shortening noninteractive progress", async () => {
-    const { stderr, runCli } = createCliTest(main);
+  test.each([
+    ["exact ASCII", "a".repeat(113), "a".repeat(113)],
+    ["exact emoji", `${"a".repeat(111)}😀`, `${"a".repeat(111)}😀`],
+    ["wide text", "界".repeat(60), `${"界".repeat(56)}…`],
+    [
+      "combining marks",
+      `${"a".repeat(111)}e\u0301 tail`,
+      `${"a".repeat(111)}e\u0301…`,
+    ],
+    ["joined emoji", `${"a".repeat(110)}👩‍💻 tail`, `${"a".repeat(110)}👩‍💻…`],
+    ["flag at cutoff", `${"a".repeat(111)}🇺🇸 tail`, `${"a".repeat(111)}…`],
+  ])(
+    "fits noninteractive progress without splitting graphemes: %s",
+    async (_name, text, expected) => {
+      const { stderr, runCli } = createCliTest(main);
 
-    const deps = dependencies();
-    deps.publishScan = async (_scanDirectory, options) => {
-      options.onProgress?.({
-        type: "codex_event",
-        event: {
-          type: "item.completed",
-          item: {
-            id: "reasoning-1",
-            type: "reasoning",
-            text: `${"a".repeat(111)}😀 and the rest of the reasoning.`,
+      const deps = dependencies();
+      deps.publishScan = async (_scanDirectory, options) => {
+        options.onProgress?.({
+          type: "codex_event",
+          event: {
+            type: "item.completed",
+            item: {
+              id: "reasoning-1",
+              type: "reasoning",
+              text,
+            },
           },
-        },
-      });
-      return publicationResult();
-    };
+        });
+        return publicationResult();
+      };
 
-    expect(
-      await runCli(
-        ["publish", "scan", "completed-scan", ...DESTINATION_OPTIONS, "--json"],
-        deps,
-      ),
-    ).toBe(0);
+      expect(
+        await runCli(
+          [
+            "publish",
+            "scan",
+            "completed-scan",
+            ...DESTINATION_OPTIONS,
+            "--json",
+          ],
+          deps,
+        ),
+      ).toBe(0);
 
-    expect(stderr.text()).toContain(`Codex: ${"a".repeat(111)}😀…\n`);
-  });
+      expect(stderr.text()).toBe(`Codex: ${expected}\n`);
+    },
+  );
 
   test("hides source-bearing handoff commands in plain and full-screen progress", async () => {
     for (const interactive of [false, true]) {

@@ -625,6 +625,19 @@ function padPublicationColumn(value: string, width: number): string {
   return `${value}${" ".repeat(width - publicationDisplayWidth(value))}`;
 }
 
+function fitProgressLine(line: string, width: number): string {
+  if (publicationDisplayWidth(line) <= width) return line;
+  let visible = "";
+  let used = 0;
+  for (const { segment } of PUBLICATION_GRAPHEME_SEGMENTER.segment(line)) {
+    const segmentWidth = publicationDisplayWidth(segment);
+    if (used + segmentWidth >= width) break;
+    visible += segment;
+    used += segmentWidth;
+  }
+  return width > 0 ? `${visible}…` : "";
+}
+
 function publicationIssueUrl(value: string | undefined): string | undefined {
   if (
     value === undefined ||
@@ -875,11 +888,7 @@ class PublicationProgressPresenter {
       return;
     }
     const width = Math.max(24, Math.min(this.#stream.columns ?? 120, 160));
-    const characters = Array.from(sanitized);
-    const visible =
-      characters.length <= width
-        ? sanitized
-        : `${characters.slice(0, width - 1).join("")}…`;
+    const visible = fitProgressLine(sanitized, width);
     this.#stream.write(`${visible}\n`);
   }
 }
@@ -11260,19 +11269,8 @@ export class Progress {
   }
 
   #renderTimer(message: string): void {
-    let line = this.#line(message);
     const width = Math.max(0, (this.#stream.columns ?? 80) - 1);
-    if (publicationDisplayWidth(line) > width) {
-      let visible = "";
-      let used = 0;
-      for (const { segment } of PUBLICATION_GRAPHEME_SEGMENTER.segment(line)) {
-        const segmentWidth = publicationDisplayWidth(segment);
-        if (used + segmentWidth >= width) break;
-        visible += segment;
-        used += segmentWidth;
-      }
-      line = width > 0 ? `${visible}…` : "";
-    }
+    const line = fitProgressLine(this.#line(message), width);
     this.#stream.write(`${this.#timerLineActive ? "\r\u001B[K" : ""}${line}`);
     this.#timerLineActive = true;
   }
