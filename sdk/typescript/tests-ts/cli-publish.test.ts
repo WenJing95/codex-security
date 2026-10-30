@@ -2150,6 +2150,9 @@ describe("publish scan", () => {
     ["exact ASCII", "a".repeat(113), "a".repeat(113)],
     ["exact emoji", `${"a".repeat(111)}😀`, `${"a".repeat(111)}😀`],
     ["wide text", "界".repeat(60), `${"界".repeat(56)}…`],
+    ["halfwidth text", "ｶ".repeat(113), "ｶ".repeat(113)],
+    ["wide vowel mark", "ー".repeat(60), `${"ー".repeat(56)}…`],
+    ["lone surrogate", `${"a".repeat(113)}\uD800`, `${"a".repeat(112)}…`],
     [
       "combining marks",
       `${"a".repeat(111)}e\u0301 tail`,
