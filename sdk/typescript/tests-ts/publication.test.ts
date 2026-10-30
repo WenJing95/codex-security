@@ -673,7 +673,7 @@ describe("scan publication preparation", () => {
         path: "src/shadow.py",
         startLine: 1,
         endLine: 2,
-        location: { path: "src/nested.py", startLine: 12, endLine: 15 },
+        location: { path: "content/contents.lr", startLine: 12, endLine: 15 },
       },
       {
         id: "reversed-range",
@@ -718,8 +718,8 @@ describe("scan publication preparation", () => {
     expect(description).toContain("app/api/%60id%60/route.ts#L7)");
     expect(description).toContain("`` `route`.ts ``");
     expect(description).not.toContain("src/shadow-canonical.py");
-    expect(description).toContain("src/nested.py:12-15");
-    expect(description).toContain("src/nested.py#L12-L15)");
+    expect(description).toContain("content/contents.lr:12-15");
+    expect(description).toContain("content/contents.lr?plain=1#L12-L15)");
     expect(description).not.toContain("src/shadow.py");
     expect(description).toContain("docs/reversed.MDX?plain=1#L48)");
     expect(description).not.toContain("#L48-L47");
