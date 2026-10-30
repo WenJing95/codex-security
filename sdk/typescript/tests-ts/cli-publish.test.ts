@@ -2146,6 +2146,35 @@ describe("publish scan", () => {
     expect(JSON.parse(stdout.text())).toEqual(publicationResult());
   });
 
+  test("keeps whole characters when shortening noninteractive progress", async () => {
+    const { stderr, runCli } = createCliTest(main);
+
+    const deps = dependencies();
+    deps.publishScan = async (_scanDirectory, options) => {
+      options.onProgress?.({
+        type: "codex_event",
+        event: {
+          type: "item.completed",
+          item: {
+            id: "reasoning-1",
+            type: "reasoning",
+            text: `${"a".repeat(111)}😀 and the rest of the reasoning.`,
+          },
+        },
+      });
+      return publicationResult();
+    };
+
+    expect(
+      await runCli(
+        ["publish", "scan", "completed-scan", ...DESTINATION_OPTIONS, "--json"],
+        deps,
+      ),
+    ).toBe(0);
+
+    expect(stderr.text()).toContain(`Codex: ${"a".repeat(111)}😀…\n`);
+  });
+
   test("hides source-bearing handoff commands in plain and full-screen progress", async () => {
     for (const interactive of [false, true]) {
       const { stdout, stderr, runCli } = createCliTest(main, {

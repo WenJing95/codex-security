@@ -875,10 +875,11 @@ class PublicationProgressPresenter {
       return;
     }
     const width = Math.max(24, Math.min(this.#stream.columns ?? 120, 160));
+    const characters = Array.from(sanitized);
     const visible =
-      sanitized.length <= width
+      characters.length <= width
         ? sanitized
-        : `${sanitized.slice(0, width - 1)}…`;
+        : `${characters.slice(0, width - 1).join("")}…`;
     this.#stream.write(`${visible}\n`);
   }
 }
