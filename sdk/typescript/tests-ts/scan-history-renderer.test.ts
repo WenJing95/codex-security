@@ -560,6 +560,35 @@ describe("scan history renderer", () => {
     }
   });
 
+  test("uses the singular for one scan, comparison, or match", () => {
+    const output = stripVTControlCharacters(
+      renderScanHistory(
+        {
+          repository: "/demo/juice-shop",
+          scanCount: 3,
+          unavailableScans: 1,
+          matchedPairs: 1,
+          findingMatches: 1,
+        },
+        "match-all",
+      ),
+    );
+    expect(output).toMatch(/↔ 1 comparison {4}◆ 1 root-cause match$/mu);
+    expect(output).toMatch(/1 scan unavailable$/mu);
+    const single = stripVTControlCharacters(
+      renderScanHistory(
+        {
+          repository: "/demo/juice-shop",
+          scanCount: 1,
+          matchedPairs: 0,
+          findingMatches: 0,
+        },
+        "match-all",
+      ),
+    );
+    expect(single).toMatch(/● 1 scan {4}↔/u);
+  });
+
   test("renders related findings separately in scan details and comparisons", () => {
     const relation = {
       beforeTitle: "Archive writer boundary",
